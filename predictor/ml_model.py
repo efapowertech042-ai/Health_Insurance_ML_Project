@@ -9,6 +9,7 @@ request.
 
 import os
 import joblib
+import numpy as np
 import pandas as pd
 from django.conf import settings
 
@@ -77,6 +78,28 @@ def predict_charges(age, sex, bmi, children, smoker, region):
     pred = float(_model.predict(X_input)[0])
     pred_lower = float(_model_lower.predict(X_input)[0])
     pred_upper = float(_model_upper.predict(X_input)[0])
+
+    # The models were trained on log1p(charges), not raw charges (see Section
+    # 7.2 / 9.1 of the notebook) -- every .predict() call above returns a
+    # log-scale value. Invert all three individually, before any of the math
+    # below runs, so interval width and flagging operate on real dollars.
+    # Branches on the metadata flag rather than assuming log1p, so this still
+    # works unchanged if the model is ever retrained on the raw target.
+    if _metadata.get("target_transform") == "log1p":
+        pred = np.expm1(pred)
+        pred_lower = np.expm1(pred_lower)
+        pred_upper = np.expm1(pred_upper)
+
+    # gb_lower and gb_upper are independently trained quantile models with no
+    # constraint tying them to each other or to gb's point prediction, so
+    # "quantile crossing" (lower > upper, or the point estimate landing
+    # outside its own interval) can happen on individual inputs even when
+    # the models are well-calibrated overall. Enforce both explicitly here,
+    # mirroring the same safeguard added in Section 9.1 of the notebook.
+    pred_lower, pred_upper = min(pred_lower, pred_upper), max(pred_lower, pred_upper)
+    pred_lower = min(pred_lower, pred)
+    pred_upper = max(pred_upper, pred)
+
     interval_width = pred_upper - pred_lower
 
     flag_threshold = _metadata["flag_threshold"]
