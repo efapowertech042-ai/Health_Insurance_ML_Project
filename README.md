@@ -1,8 +1,32 @@
-# Insurance Charges Predictor — Django
+# 🏥 Insurance Charges Predictor — Django
 
-Collects age, sex, BMI, children, smoker status, and region from a user and
-returns a predicted annual insurance charge, a 90% confidence interval, and a
-low-confidence flag for predictions the model is less certain about.
+> **Most models give you a number. This one tells you how much to trust it.**
+
+🔗 **Live demo: [health-insurance-ml-project.onrender.com](https://health-insurance-ml-project.onrender.com/)**
+
+> ℹ️ Hosted on Render's free tier, so the first load after a period of inactivity can take up to a minute while the app wakes up.
+
+---
+
+## The Problem
+
+Health insurance pricing is noisy. Two people with the same age and BMI can receive very different charges, and a single-number prediction hides that uncertainty. A model that scores well on a test set is the starting line, not the finish line: what matters is whether you can tell *when it is likely to be wrong*.
+
+## The Solution
+
+Enter six details (**age, sex, BMI, children, smoker status, and region**) and the app returns:
+
+- 💰 **A predicted annual insurance charge** from a gradient boosting model
+- 📊 **A 90% confidence interval** around that prediction, calculated per input
+- 🚩 **A low-confidence flag** that marks predictions the model is less certain about and recommends manual review
+
+The confidence interval comes from two extra models trained with quantile loss (5th and 95th percentile), so it needs no ground truth at prediction time. Wide gap, less certainty.
+
+## Try It
+
+Open the [live app](https://health-insurance-ml-project.onrender.com/) and compare a young non-smoker with an older smoker with a high BMI. Watch how the interval widens for the harder-to-predict profiles.
+
+---
 
 ## 1. Add the model artifacts
 
@@ -36,6 +60,8 @@ Visit http://127.0.0.1:8000/
 
 ## 3. Deploy
 
+The live version runs on Render at
+[health-insurance-ml-project.onrender.com](https://health-insurance-ml-project.onrender.com/).
 Any host that runs Django works (Render, Railway, PythonAnywhere, Fly.io).
 General steps for Render/Railway:
 
@@ -46,7 +72,7 @@ General steps for Render/Railway:
 4. Start command: `gunicorn charges_project.wsgi:application`
 
 `whitenoise` is included in requirements so static files serve correctly in
-production without extra configuration — add it to `MIDDLEWARE` in
+production without extra configuration. Add it to `MIDDLEWARE` in
 `settings.py` (right after `SecurityMiddleware`) and set
 `STATICFILES_STORAGE = "whitenoise.storage.CompressedManifestStaticFilesStorage"`
 if you deploy this.
@@ -57,5 +83,5 @@ Two extra models were trained with quantile loss (5th and 95th percentile)
 alongside the main model. Their prediction gap is a per-input confidence
 interval, computed with no ground truth needed. Inputs whose interval is
 wider than the 90th-percentile threshold observed on the test set get
-flagged as "low confidence — recommend manual review." See Section 8 and 9
+flagged as "low confidence — recommend manual review." See Sections 8 and 9
 of the training notebook for the full reasoning and validation.
